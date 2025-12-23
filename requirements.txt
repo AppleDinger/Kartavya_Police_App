@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+python-dotenv
+streamlit
+folium
+streamlit-folium
+requests
+pandas
+PostgreSQL 
+psycopg2-binary

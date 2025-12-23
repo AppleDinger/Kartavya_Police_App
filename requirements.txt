@@ -13,3 +13,4 @@ requests
 pandas
 PostgreSQL 
 psycopg2-binary
+

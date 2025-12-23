@@ -5,8 +5,10 @@ from streamlit_folium import st_folium
 import pandas as pd
 import time
 from datetime import datetime
+import os
 
-API_URL = "http://127.0.0.1:8000"
+# Defaults to localhost if not set, but allows Render to inject the real URL
+API_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(page_title="Kartavya | Police Command", page_icon=None, layout="wide", initial_sidebar_state="expanded")
 

@@ -2,7 +2,7 @@ fastapi
 uvicorn
 sqlalchemy
 pydantic
-passlib[bcrypt]
+passlib[argon2]
 python-jose[cryptography]
 python-multipart
 requests
@@ -12,3 +12,4 @@ streamlit-folium
 psycopg2-binary
 pandas
 python-dotenv
+argon2-cffi

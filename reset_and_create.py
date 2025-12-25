@@ -1,4 +1,5 @@
 import random
+import sys
 from sqlalchemy import text
 from src.backend.app.database import SessionLocal, engine
 from src.backend.app import models, auth
@@ -18,11 +19,9 @@ SOUTH_OFFICERS = [
     "Kavita_Yadav", "Rajesh_Kumar", "Meera_Joshi", "Varun_Nair", "Nikhil_Sawant"
 ]
 
-# Weighted Status Options (More 'Safe' than 'Risk' for realism)
 STATUS_OPTIONS = ["safe", "safe", "safe", "risk", "free", "free", "req_leave", "on_leave"] 
 
 def get_random_coords(region):
-    """Generate valid coordinates for Goa regions"""
     if region == "north":
         lat = random.uniform(15.4800, 15.6200)   # Panaji / Mapusa
         long = random.uniform(73.7500, 73.8500)
@@ -32,24 +31,50 @@ def get_random_coords(region):
     return lat, long
 
 def reset_database():
-    print("🔥 Force deleting all tables...")
+    """Interactive Switch Case for Reset Mode"""
+    print("\n⚠️  DATABASE RESET MENU ⚠️")
+    print("----------------------------")
+    print("1. [TRUNCATE] Clean Data Only (Fast, NO Redeploy needed)")
+    print("2. [DROP]     Destroy Everything (Hard Reset, MUST Redeploy Backend)")
+    print("----------------------------")
+    
+    choice = input("👉 Select Option (1 or 2): ").strip()
+
     with engine.connect() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS notification_logs CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS pings CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS deployments CASCADE"))
-        conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
-        conn.commit()
-    print("✅ Database wiped clean.")
+        if choice == "1":
+            print("\n🧹 TRUNCATING tables (Keeping structure)...")
+            # Truncate deletes rows but keeps the table alive. 'RESTART IDENTITY' resets IDs to 1.
+            conn.execute(text("TRUNCATE TABLE notification_logs, pings, deployments, users RESTART IDENTITY CASCADE"))
+            conn.commit()
+            print("✅ Tables emptied.")
+            return "truncate"
+
+        elif choice == "2":
+            print("\n🔥 DROPPING all tables (Nuclear Option)...")
+            conn.execute(text("DROP TABLE IF EXISTS notification_logs CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS pings CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS deployments CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
+            conn.commit()
+            print("✅ Tables destroyed.")
+            return "drop"
+        
+        else:
+            print("❌ Invalid selection. Exiting.")
+            sys.exit()
 
 def create_data():
-    reset_database()
+    # 1. Ask User & Reset DB
+    mode = reset_database()
     
-    print("🏗️  Creating new tables...")
-    models.Base.metadata.create_all(bind=engine)
+    # 2. If DROP mode was used, we must re-create tables
+    if mode == "drop":
+        print("🏗️  Re-creating table structure...")
+        models.Base.metadata.create_all(bind=engine)
     
     db = SessionLocal()
 
-    # 1. Create Supervisors
+    # 3. Create Supervisors
     print("👮 Creating Supervisors...")
     head = models.User(username="head", hashed_password=auth.get_password_hash("admin"), role="head_officer", profile_photo=SUP_PHOTO)
     sup_n = models.User(username="sup_north", hashed_password=auth.get_password_hash("sup1"), role="supervisor", profile_photo=SUP_PHOTO)
@@ -58,30 +83,22 @@ def create_data():
     db.add_all([head, sup_n, sup_s])
     db.commit()
 
-    # 2. Create Officers with "Mathematically Correct" Status
-    print("pz Creating Smart Data (Positions match Status)...")
+    # 4. Create Officers with Smart Status Logic
+    print("🚓 Creating Officers with Synced Status...")
     
     roster = [(name, "north", sup_n) for name in NORTH_OFFICERS] + \
              [(name, "south", sup_s) for name in SOUTH_OFFICERS]
 
     for name, region, supervisor in roster:
         status_type = random.choice(STATUS_OPTIONS)
-        
-        # 1. Generate Base Location
         lat, long = get_random_coords(region)
         
-        on_leave = False
-        req_leave = False
+        on_leave = (status_type == "on_leave")
+        req_leave = (status_type == "req_leave")
         
-        # 2. Handle Leave Logic
-        if status_type == "on_leave":
-            on_leave = True
-            lat = None # People on leave have no location
-            long = None
-        elif status_type == "req_leave":
-            req_leave = True
-        
-        # 3. Create User
+        if on_leave:
+            lat, long = None, None
+
         user = models.User(
             username=name,
             hashed_password=auth.get_password_hash("pass"),
@@ -94,26 +111,17 @@ def create_data():
             profile_photo=OFFICER_PHOTO
         )
         db.add(user)
-        db.flush() # Need ID for deployment
+        db.flush()
 
-        # 4. Create Consistency: Draw Zone BASED ON Status
         if status_type in ["safe", "risk"] and not on_leave:
-            
-            # DEFAULT: Target = Current Location (Perfectly Safe)
-            target_lat = lat
-            target_long = long
-            
-            # IF RISK: Move Target 2km away so math fails
+            target_lat, target_long = lat, long
             if status_type == "risk":
-                target_lat = lat + 0.02 
-            
+                target_lat = lat + 0.02 # Force mismatch
+
             deploy = models.Deployment(
                 officer_id=user.id,
-                target_lat=target_lat,
-                target_long=target_long,
-                radius_meters=500.0,
-                current_lat=lat,
-                current_long=long,
+                target_lat=target_lat, target_long=target_long, radius_meters=500.0,
+                current_lat=lat, current_long=long,
                 status="deployed" if status_type == "safe" else "out_of_bounds",
                 is_active=True
             )
@@ -123,11 +131,16 @@ def create_data():
             print(f"   -> {name}: {status_type.upper()}")
 
     db.commit()
-    print("✅ SUCCESS: Data Generated & mathematically verified.")
-    print("   👉 Supervisors: sup_south / sup2")
-    print("   👉 Supervisors: sup_north / sup1")
-    print("   👉 Head Officer: head / admin")
-    print("   👉 All Officers: pass")
+    print("\n✅ SUCCESS: Data Refreshed!")
+    if mode == "drop":
+        print("⚠️  REMINDER: You used DROP mode. You MUST redeploy your backend on Render now!")
+    else:
+        print("🚀 TRUNCATE mode used. No redeploy needed. Refresh your dashboard!")
+
+    print("🔗 Login Credentials:")
+    print("   - Head Officer: username='head', password='admin'")
+    print("   - Supervisors:  username='sup_north', password='sup1' | username='sup_south', password='sup2'")
+    print("   - Field Officers: username='<Officer_Name>', password='pass' (e.g., 'Amit_Verma')")    
     db.close()
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ from src.backend.app import models, auth
 SUP_PHOTO = "https://cdn-icons-png.flaticon.com/512/206/206853.png"
 OFFICER_PHOTO = "https://cdn-icons-png.flaticon.com/512/727/727399.png"
 
-# --- FIXED ROSTER ---
+# --- FIXED NAMES ---
 NORTH_OFFICERS = [
     "Amit_Verma", "Rohan_Naik", "Priya_Desai", "Sanjay_Gupta", "Anjali_Sharma",
     "Vikram_Rao", "Neha_Kamat", "Karan_Singh", "Deepak_Lobo", "Simran_Kaur"
@@ -18,15 +18,16 @@ SOUTH_OFFICERS = [
     "Kavita_Yadav", "Rajesh_Kumar", "Meera_Joshi", "Varun_Nair", "Nikhil_Sawant"
 ]
 
+# Weighted Status Options (More 'Safe' than 'Risk' for realism)
+STATUS_OPTIONS = ["safe", "safe", "safe", "risk", "free", "free", "req_leave", "on_leave"] 
+
 def get_random_coords(region):
     """Generate valid coordinates for Goa regions"""
     if region == "north":
-        # Panaji / Mapusa area
-        lat = random.uniform(15.4800, 15.6200)
+        lat = random.uniform(15.4800, 15.6200)   # Panaji / Mapusa
         long = random.uniform(73.7500, 73.8500)
     else:
-        # Margao / Vasco area
-        lat = random.uniform(15.2500, 15.3500)
+        lat = random.uniform(15.2500, 15.3500)   # Margao / Vasco
         long = random.uniform(73.9000, 74.0500)
     return lat, long
 
@@ -57,42 +58,76 @@ def create_data():
     db.add_all([head, sup_n, sup_s])
     db.commit()
 
-    # 2. Create North Team
-    print("🚓 Creating North Team (Panaji Region)...")
-    for name in NORTH_OFFICERS:
-        lat, long = get_random_coords("north")
-        # Uniform password for everyone
-        off = models.User(
-            username=name,
-            hashed_password=auth.get_password_hash("pass"),
-            role="field_officer",
-            supervisor_id=sup_n.id,
-            last_known_lat=lat,
-            last_known_long=long,
-            profile_photo=OFFICER_PHOTO
-        )
-        db.add(off)
+    # 2. Create Officers with "Mathematically Correct" Status
+    print("pz Creating Smart Data (Positions match Status)...")
+    
+    roster = [(name, "north", sup_n) for name in NORTH_OFFICERS] + \
+             [(name, "south", sup_s) for name in SOUTH_OFFICERS]
 
-    # 3. Create South Team
-    print("🚓 Creating South Team (Margao Region)...")
-    for name in SOUTH_OFFICERS:
-        lat, long = get_random_coords("south")
-        # Uniform password for everyone
-        off = models.User(
+    for name, region, supervisor in roster:
+        status_type = random.choice(STATUS_OPTIONS)
+        
+        # 1. Generate Base Location
+        lat, long = get_random_coords(region)
+        
+        on_leave = False
+        req_leave = False
+        
+        # 2. Handle Leave Logic
+        if status_type == "on_leave":
+            on_leave = True
+            lat = None # People on leave have no location
+            long = None
+        elif status_type == "req_leave":
+            req_leave = True
+        
+        # 3. Create User
+        user = models.User(
             username=name,
             hashed_password=auth.get_password_hash("pass"),
             role="field_officer",
-            supervisor_id=sup_s.id,
+            supervisor_id=supervisor.id,
             last_known_lat=lat,
             last_known_long=long,
+            is_on_leave=on_leave,
+            leave_requested=req_leave,
             profile_photo=OFFICER_PHOTO
         )
-        db.add(off)
+        db.add(user)
+        db.flush() # Need ID for deployment
+
+        # 4. Create Consistency: Draw Zone BASED ON Status
+        if status_type in ["safe", "risk"] and not on_leave:
+            
+            # DEFAULT: Target = Current Location (Perfectly Safe)
+            target_lat = lat
+            target_long = long
+            
+            # IF RISK: Move Target 2km away so math fails
+            if status_type == "risk":
+                target_lat = lat + 0.02 
+            
+            deploy = models.Deployment(
+                officer_id=user.id,
+                target_lat=target_lat,
+                target_long=target_long,
+                radius_meters=500.0,
+                current_lat=lat,
+                current_long=long,
+                status="deployed" if status_type == "safe" else "out_of_bounds",
+                is_active=True
+            )
+            db.add(deploy)
+            print(f"   -> {name}: {status_type.upper()} (Synced)")
+        else:
+            print(f"   -> {name}: {status_type.upper()}")
 
     db.commit()
-    print("   👉 Supervisors: sup_north / sup1")
+    print("✅ SUCCESS: Data Generated & mathematically verified.")
     print("   👉 Supervisors: sup_south / sup2")
-    print("   👉 ALL Officers: [Any Name] / pass")
+    print("   👉 Supervisors: sup_north / sup1")
+    print("   👉 Head Officer: head / admin")
+    print("   👉 All Officers: pass")
     db.close()
 
 if __name__ == "__main__":

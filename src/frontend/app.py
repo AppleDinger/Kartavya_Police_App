@@ -112,11 +112,11 @@ def field_dashboard():
             
         with st.popover("SEND PING", use_container_width=True):
             avail = [o['username'] for o in all_officers if o['username'] != st.session_state.username and o['status_color'] != 'blue']
-            target_opts = ["📢 ALL NEARBY UNITS (5KM)"] + avail
+            target_opts = ["討 ALL NEARBY UNITS (5KM)"] + avail
             tgt = st.selectbox("TARGET", target_opts)
             msg = st.text_input("MESSAGE")
             if st.button("TRANSMIT"):
-                if tgt.startswith("📢"): r = requests.post(f"{API_URL}/ping/broadcast", json={"message": msg}, headers=headers)
+                if tgt.startswith("討"): r = requests.post(f"{API_URL}/ping/broadcast", json={"message": msg}, headers=headers)
                 else:
                     tid = next(o['id'] for o in all_officers if o['username'] == tgt)
                     r = requests.post(f"{API_URL}/ping/send", json={"receiver_id": tid, "message": msg}, headers=headers)
@@ -134,7 +134,7 @@ def field_dashboard():
             st.number_input("LATITUDE", format="%.4f", key="lat_in", on_change=update_loc)
             st.number_input("LONGITUDE", format="%.4f", key="lng_in", on_change=update_loc)
         else:
-            if st.button("📍 GET DEVICE LOCATION", use_container_width=True):
+            if st.button("桃 GET DEVICE LOCATION", use_container_width=True):
                 st.session_state.lat_in = 15.4909 # Mock Value
                 st.session_state.lng_in = 73.8278
                 update_loc(); st.toast("LOCATION UPDATED FROM DEVICE")
@@ -145,7 +145,7 @@ def field_dashboard():
     st.markdown("### FIELD TERMINAL")
     if pings:
         for p in pings:
-            st.warning(f"📡 PING FROM {p['sender'].upper()}: {p['message']}")
+            st.warning(f"藤 PING FROM {p['sender'].upper()}: {p['message']}")
             if st.button("LOCATE SIGNAL", key=f"p{p['id']}"):
                 st.session_state.ping_target = [p['lat'], p['long']]
                 requests.post(f"{API_URL}/ping/dismiss/{p['id']}", headers=headers); st.rerun()
@@ -193,7 +193,7 @@ def supervisor_dashboard():
 
     pending = [o for o in officers if o['leave_requested']]
     if pending:
-        st.markdown(f"<div class='notif-box'><span class='notif-title'>⚠️ PENDING AUTHORIZATIONS: {len(pending)}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='notif-box'><span class='notif-title'>笞ｸPENDING AUTHORIZATIONS: {len(pending)}</span></div>", unsafe_allow_html=True)
         for p in pending:
             with st.container():
                 cols = st.columns([0.5, 3, 1, 1])
@@ -208,6 +208,18 @@ def supervisor_dashboard():
     with c_map:
         st.markdown("**TACTICAL MAP**")
         deploy_mode = st.toggle("ACTIVATE TARGETING SYSTEM", value=st.session_state.deploy_mode)
+        
+        # --- NEW MAP LEGEND ---
+        st.markdown("""
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <span class="status-pill pill-safe">SECURE</span>
+            <span class="status-pill pill-risk">ALERT</span>
+            <span class="status-pill pill-warn">STANDBY</span>
+            <span class="status-pill pill-info">OFF DUTY</span>
+        </div>
+        """, unsafe_allow_html=True)
+        # ----------------------
+
         st.session_state.deploy_mode = deploy_mode
         m = folium.Map(location=st.session_state.map_center, zoom_start=st.session_state.map_zoom, tiles="CartoDB dark_matter")
         user = st.session_state.username

@@ -1,11 +1,11 @@
-# 🛡️ Kartvya- Police Geofencing Command Center
+# Kartvya- Police Geofencing Command Center
 
 A tactical command dashboard for managing police field units, tracking real-time locations, and handling deployment/leave requests.
 https://kartavya-police-app-frontend.onrender.com/
 
 --------------------------------------------------------------------------------
 
-## 🚀 Quick Setup
+## Quick Setup
 
 ### 1. Prerequisites
 - Python 3.11 or higher
@@ -35,7 +35,7 @@ python create_sample_data.py
 
 -----
 
-## 🖥️ Running the Application
+## Running the Application
 
 You need **two separate terminals** running at the same time.
 
@@ -57,7 +57,7 @@ streamlit run src\frontend\app.py
 
 -----
 
-## 🔑 Login Credentials
+## Login Credentials
 
 ### 1\. Supervisor (Command HQ)
 
@@ -82,7 +82,7 @@ Login here to simulate GPS movement, view your assigned zone, and request leave.
 
 -----
 
-## 🛠️ Key Features
+## Key Features
 
 	- **Tactical Map:** Real-time view of all units with status color coding.
 	- **Bulk Deployment:** Supervisors can select multiple free units and deploy them to a specific coordinate.
@@ -91,4 +91,9 @@ Login here to simulate GPS movement, view your assigned zone, and request leave.
 	- **Smart Notifications:** Real-time alerts for boundary violations and leave requests.
 
 
+
+## Licensing & Open Source Disclosure
+Kartavya is licensed under the GNU AGPLv3.
+
+Unlike the standard GPL, the Affero license specifically closes the "SaaS Loophole." If you modify this code and run it on a server to provide services to users over a network (such as a private police department cloud), you are legally obligated to make your modified source code available to those users. > This ensures that improvements to this critical public safety infrastructure remain open to the public and the personnel using it.
 

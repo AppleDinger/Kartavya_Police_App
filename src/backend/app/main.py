@@ -13,7 +13,98 @@ from .services import geofencing_service
 # Create tables
 models.Base.metadata.create_all(bind=database.engine)
 
+SUP_PHOTO = "https://cdn-icons-png.flaticon.com/512/206/206853.png"
+OFFICER_PHOTO = "https://cdn-icons-png.flaticon.com/512/727/727399.png"
+
 app = FastAPI(title="Police Geofencing API")
+
+
+def seed_default_accounts():
+    db = database.SessionLocal()
+    try:
+        if db.query(models.User).first():
+            return
+
+        head = models.User(
+            username="head",
+            hashed_password=auth.get_password_hash("admin"),
+            role="head_officer",
+            profile_photo=SUP_PHOTO,
+        )
+        sup_n = models.User(
+            username="sup_north",
+            hashed_password=auth.get_password_hash("sup1"),
+            role="supervisor",
+            profile_photo=SUP_PHOTO,
+        )
+        sup_s = models.User(
+            username="sup_south",
+            hashed_password=auth.get_password_hash("sup2"),
+            role="supervisor",
+            profile_photo=SUP_PHOTO,
+        )
+
+        db.add_all([head, sup_n, sup_s])
+        db.flush()
+
+        roster = [
+            ("Amit_Verma", sup_n, "safe", 15.5300, 73.8000),
+            ("Vikram_Rao", sup_n, "risk", 15.5600, 73.8250),
+            ("Arjun_Reddy", sup_s, "free", 15.3000, 73.9800),
+            ("MS_Dhoni", sup_s, "on_leave", None, None),
+        ]
+
+        for username, supervisor, status, lat, long in roster:
+            user = models.User(
+                username=username,
+                hashed_password=auth.get_password_hash("123"),
+                role="field_officer",
+                supervisor_id=supervisor.id,
+                last_known_lat=lat,
+                last_known_long=long,
+                is_on_leave=(status == "on_leave"),
+                leave_requested=False,
+                profile_photo=OFFICER_PHOTO,
+            )
+            db.add(user)
+            db.flush()
+
+            if status == "safe":
+                db.add(
+                    models.Deployment(
+                        officer_id=user.id,
+                        target_lat=lat,
+                        target_long=long,
+                        radius_meters=500.0,
+                        current_lat=lat,
+                        current_long=long,
+                        status="deployed",
+                        is_active=True,
+                    )
+                )
+            elif status == "risk":
+                db.add(
+                    models.Deployment(
+                        officer_id=user.id,
+                        target_lat=lat + 0.02,
+                        target_long=long,
+                        radius_meters=500.0,
+                        current_lat=lat,
+                        current_long=long,
+                        status="out_of_bounds",
+                        is_active=True,
+                    )
+                )
+
+        db.commit()
+        print("Seeded default login accounts for the README demo users.")
+    finally:
+        db.close()
+
+
+@app.on_event("startup")
+def on_startup():
+    seed_default_accounts()
 
 # --- INTERNAL HELPERS ---
 def calculate_distance(lat1, lon1, lat2, lon2):

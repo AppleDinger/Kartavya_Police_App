@@ -27,10 +27,10 @@ pip install -r requirements.txt
 
 ### 3\. Database Setup
 
-Run this script to generate the sample database with **20 Officers** (Safe, Risk, Free, On Leave) and **2 Supervisors**.
+The backend creates the tables and seeds the demo login accounts automatically on first startup. If you want to regenerate the larger sample dataset, run the reset script in the project root.
 
 ```powershell
-python create_sample_data.py
+python reset_and_create.py
 ```
 
 -----
@@ -79,6 +79,20 @@ Login here to simulate GPS movement, view your assigned zone, and request leave.
 | **RISK** | `Vikram_Rao` | `123` | 🔴 Outside Zone (Red) |
 | **FREE** | `Arjun_Reddy` | `123` | 🟡 Waiting for Deployment |
 | **LEAVE** | `MS_Dhoni` | `123` | 🔵 On Leave (Blue) |
+
+## ⚠️ Error Codes
+
+Use this list to interpret common login and dashboard failures:
+
+| Code | Meaning |
+|------|---------|
+| `AUTH-401` | Wrong username or password. |
+| `AUTH-403` | The backend rejected the login request. |
+| `NET-001` | The backend host is unreachable or the Render service is offline. |
+| `API-500` | The backend returned an unexpected server error. |
+| `DB-404` | The database file or database service was not found. |
+| `DB-500` | The backend could not connect to the database. |
+| `REQ-400` | The request was invalid or missing required data. |
 
 -----
 

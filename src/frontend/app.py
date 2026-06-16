@@ -10,6 +10,16 @@ import os
 # Defaults to localhost if not set, but allows Render to inject the real URL
 API_URL = os.getenv("BACKEND_URL", "http://127.0.0.1:8000")
 
+ERROR_CODES = {
+    "AUTH-401": "Wrong username or password.",
+    "AUTH-403": "Access denied by the backend.",
+    "NET-001": "Backend host is unreachable or expired.",
+    "API-500": "Backend service crashed or returned an unexpected error.",
+    "DB-404": "Database file or database service not found.",
+    "DB-500": "Database connection failed on the backend.",
+    "REQ-400": "Request was rejected because required data was missing or invalid.",
+}
+
 st.set_page_config(page_title="Kartavya | Police Command", page_icon=None, layout="wide", initial_sidebar_state="expanded")
 
 ZONES = {
@@ -48,6 +58,11 @@ def load_css():
     </style>
     """, unsafe_allow_html=True)
 
+
+def show_error(code, fallback):
+    message = ERROR_CODES.get(code, fallback)
+    st.error(f"[{code}] {message}")
+
 if 'token' not in st.session_state: st.session_state.token = None
 if 'role' not in st.session_state: st.session_state.role = None
 if 'photo' not in st.session_state: st.session_state.photo = None
@@ -67,8 +82,14 @@ def do_login(u, p):
             if "north" in d['username']: st.session_state.map_center = ZONES["NORTH"]["center"]
             elif "south" in d['username']: st.session_state.map_center = ZONES["SOUTH"]["center"]
             st.rerun()
-        else: st.error("ACCESS DENIED")
-    except: st.error("SERVER UNREACHABLE")
+        elif res.status_code == 401:
+            show_error("AUTH-401", "Access denied")
+        elif res.status_code == 403:
+            show_error("AUTH-403", "Access denied")
+        else:
+            show_error("API-500", "Login failed")
+    except requests.exceptions.RequestException:
+        show_error("NET-001", "Server unreachable")
 
 def login_page():
     load_css()
@@ -86,6 +107,10 @@ def login_page():
                 u = st.text_input("OFFICER ID", key="h_u"); p = st.text_input("SECURE KEY", type="password", key="h_p")
                 st.form_submit_button("AUTHENTICATE", type="primary", on_click=lambda: do_login(st.session_state.h_u, st.session_state.h_p))
 
+        with st.expander("ERROR CODES", expanded=False):
+            for code, description in ERROR_CODES.items():
+                st.markdown(f"**{code}** — {description}")
+
 def update_loc():
     requests.post(f"{API_URL}/checkin", json={"latitude": st.session_state.lat_in, "longitude": st.session_state.lng_in}, headers={"Authorization": f"Bearer {st.session_state.token}"})
 
@@ -98,7 +123,9 @@ def field_dashboard():
         pings = requests.get(f"{API_URL}/pings/active", headers=headers).json()
         logs = requests.get(f"{API_URL}/officer/logs", headers=headers).json()
         all_officers = requests.get(f"{API_URL}/status/all", headers=headers).json()
-    except: st.error("NETWORK ERROR"); return
+    except requests.exceptions.RequestException:
+        show_error("NET-001", "Network error")
+        return
 
     with st.sidebar:
         st.image(st.session_state.photo, width=120)
@@ -189,7 +216,9 @@ def supervisor_dashboard():
     c1, c2 = st.columns([6, 1])
     c1.markdown(f"### KARTAVYA HQ: {st.session_state.username.upper()}")
     try: officers = requests.get(f"{API_URL}/status/all", headers=headers).json(); logs = requests.get(f"{API_URL}/logs", headers=headers).json()
-    except: st.error("DATALINK FAILURE"); return
+    except requests.exceptions.RequestException:
+        show_error("NET-001", "Data link failure")
+        return
 
     pending = [o for o in officers if o['leave_requested']]
     if pending:
